@@ -2,6 +2,7 @@
 # CLI 工具 - init 命令
 
 import click
+import json
 import os
 
 
@@ -11,7 +12,27 @@ def cli():
     """
     Agent-Handoff - 项目级 AI 协作系统
     
-    使用方法：
+        click.echo(f"✓ Created {config_path}")
+       cl    click.echo("3. Restart VSCode/Cursor")
+    click.echo("4. Check MCP connection status in bottom-right corner")
+    click.echo("5. In Copilot, type: 'Call start_work to begin development'\n")
+    
+    click.echo("💡 Tips:")
+    click.echo("- If connection fails, check that Python path is correct")
+    click.echo("- Ensure agent-handoff is installed in current Python environment")
+    click.echo("- Check VSCode Output panel MCP logs for error details\n")("3. Restart VSCode/Cursor")
+    click.echo("4. Check MCP connection status in bottom-right corner")
+    click.echo("5. In Copilot, type: 'Call start_work to begin development'\n")
+    
+    click.echo("💡 Tips:")
+    click.echo("- If connection fails, check that Python path is correct")
+    click.echo("- Ensure agent-handoff is installed in current Python environment")
+    click.echo("- Check VSCode Output panel MCP logs for error details\n") 6. Print next steps
+    click.echo("\n" + "="*60)
+    click.echo("🎉 Initialization Complete!")
+    click.echo("="*60)
+    
+    click.echo("\n📝 Next Step: Configure your IDE\n")：
         agent-handoff init     # 初始化项目
     """
     pass
@@ -36,7 +57,7 @@ def init():
             click.echo("❌ 取消初始化")
             return
     
-    click.echo("📦 开始初始化 Agent-Handoff...\n")
+    click.echo("📦 Initializing Agent-Handoff...\n")
     
     # 1. 创建目录结构
     dirs = [
@@ -49,224 +70,40 @@ def init():
     
     for d in dirs:
         os.makedirs(d, exist_ok=True)
-        click.echo(f"✓ 创建 {d}/")
+        click.echo(f"✓ Created {d}/")
     
-    # 2. 创建 agentreadme.md
+    # 2. Create agentreadme.md
     agentreadme_path = ".agent-handoff/agentreadme.md"
     if not os.path.exists(agentreadme_path):
         with open(agentreadme_path, 'w', encoding='utf-8') as f:
             f.write("""# Agent README
 
-**状态**: 未开始  
-**最后更新**: 项目初始化  
+**Status**: Not Started  
+**Last Updated**: Project Initialization  
 
-## 项目概况
+## Project Overview
 
-这是一个新项目。第一个 Agent 完成任务后，这里会自动生成项目交接文档。
+This is a new project. After the first Agent completes a task, handoff documentation will be automatically generated here.
 
-## 当前状态
+## Current Status
 
-- 项目已初始化 Agent-Handoff
-- 等待第一个开发任务
+- Agent-Handoff has been initialized
+- Waiting for first development task
 
-## 下一步
+## Next Steps
 
-请：
-1. 在 `docs/01_Goals_and_Status/` 中填写项目目标和需求
-2. 在 `docs/02_Architecture_and_Usage/` 中说明技术架构
-3. 调用 `start_work` 工具开始第一个任务
+Please:
+1. Fill in project goals and requirements in `docs/01_Goals_and_Status/`
+2. Describe technical architecture in `docs/02_Architecture_and_Usage/`
+3. Call `start_work` tool to begin first task
 
 ---
 
-💡 这个文档会在每次任务结束时由 Agent 自动更新。
+💡 This document will be automatically updated by the Agent at the end of each task.
 """)
-        click.echo(f"✓ 创建 {agentreadme_path}")
+        click.echo(f"✓ Created {agentreadme_path}")
     
-    # 3. 复制独立MCP服务器脚本
-    try:
-        # 尝试从agent_handoff模块目录读取standalone_mcp_server.py
-        import agent_handoff
-        module_dir = os.path.dirname(agent_handoff.__file__)
-        standalone_server_path = os.path.join(module_dir, 'standalone_mcp_server.py')
-        
-        if os.path.exists(standalone_server_path):
-            with open(standalone_server_path, 'r', encoding='utf-8') as f:
-                standalone_server_content = f.read()
-        else:
-            # 如果找不到文件，使用简化版本
-            standalone_server_content = '''#!/usr/bin/env python3
-"""
-Agent-Handoff 独立MCP服务器（简化版）
-这个脚本可以在任何项目目录中运行，无需安装agent_handoff包
-使用方法: python .agent-handoff/mcp_server.py
-"""
-
-import asyncio
-import json
-import logging
-import os
-import sys
-from typing import Any
-
-try:
-    from mcp.server import Server
-    from mcp.server.stdio import stdio_server
-    from mcp.types import Tool, TextContent
-except ImportError:
-    print("错误: 请先安装 MCP 依赖: pip install mcp", file=sys.stderr)
-    sys.exit(1)
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("agent-handoff")
-
-class AgentHandoffServer:
-    """简化的Agent-Handoff MCP服务器"""
-    
-    def __init__(self):
-        self.server = Server("agent-handoff")
-        self.project_root = os.getcwd()
-        self.docs_dir = os.path.join(self.project_root, "docs")
-        self.config_dir = os.path.join(self.project_root, ".agent-handoff")
-        
-        os.makedirs(self.docs_dir, exist_ok=True)
-        os.makedirs(self.config_dir, exist_ok=True)
-        
-        self.active_sessions = {}
-        self._register_handlers()
-        logger.info(f"MCP服务器启动，项目目录: {self.project_root}")
-    
-    def _register_handlers(self):
-        @self.server.list_tools()
-        async def list_tools() -> list[Tool]:
-            return [
-                Tool(
-                    name="start_work",
-                    description="开始新的工作会话",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "user_goal": {
-                                "type": "string",
-                                "description": "用户的目标和需求描述"
-                            }
-                        },
-                        "required": ["user_goal"]
-                    }
-                ),
-                Tool(
-                    name="read_file",
-                    description="读取docs目录下的文件",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "path": {
-                                "type": "string",
-                                "description": "文件路径（相对于docs/）"
-                            }
-                        },
-                        "required": ["path"]
-                    }
-                ),
-                Tool(
-                    name="write_file", 
-                    description="写入文件到docs目录",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "path": {
-                                "type": "string", 
-                                "description": "文件路径（相对于docs/）"
-                            },
-                            "content": {
-                                "type": "string",
-                                "description": "文件内容"
-                            }
-                        },
-                        "required": ["path", "content"]
-                    }
-                )
-            ]
-        
-        @self.server.call_tool()
-        async def call_tool(name: str, arguments: Any) -> list[TextContent]:
-            try:
-                if name == "start_work":
-                    goal = arguments.get("user_goal", "")
-                    # 读取agentreadme.md
-                    readme_path = os.path.join(self.config_dir, "agentreadme.md")
-                    context = "项目暂无历史上下文"
-                    if os.path.exists(readme_path):
-                        with open(readme_path, 'r', encoding='utf-8') as f:
-                            context = f.read()
-                    
-                    result = {
-                        "status": "success",
-                        "message": "工作会话已启动", 
-                        "user_goal": goal,
-                        "project_context": context,
-                        "next_step": "请制定详细计划并开始执行"
-                    }
-                    
-                elif name == "read_file":
-                    path = arguments["path"]
-                    full_path = os.path.join(self.docs_dir, path)
-                    try:
-                        with open(full_path, 'r', encoding='utf-8') as f:
-                            content = f.read()
-                        result = {"path": path, "content": content}
-                    except FileNotFoundError:
-                        result = {"error": f"文件不存在: {path}"}
-                        
-                elif name == "write_file":
-                    path = arguments["path"]
-                    content = arguments["content"]
-                    full_path = os.path.join(self.docs_dir, path)
-                    os.makedirs(os.path.dirname(full_path), exist_ok=True)
-                    with open(full_path, 'w', encoding='utf-8') as f:
-                        f.write(content)
-                    result = {"status": "success", "message": f"文件已保存: {path}"}
-                    
-                else:
-                    result = {"error": f"未知工具: {name}"}
-                
-                return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
-                
-            except Exception as e:
-                logger.error(f"工具 {name} 执行失败: {e}")
-                error_result = {
-                    "error": {
-                        "code": "TOOL_EXECUTION_ERROR",
-                        "message": str(e)
-                    }
-                }
-                return [TextContent(type="text", text=json.dumps(error_result, ensure_ascii=False, indent=2))]
-
-async def main():
-    logger.info("Agent-Handoff 独立MCP服务器启动中...")
-    server_instance = AgentHandoffServer()
-    
-    async with stdio_server() as (read_stream, write_stream):
-        await server_instance.server.run(
-            read_stream,
-            write_stream,
-            server_instance.server.create_initialization_options()
-        )
-
-if __name__ == "__main__":
-    asyncio.run(main())
-'''
-
-        mcp_server_path = ".agent-handoff/mcp_server.py"
-        if not os.path.exists(mcp_server_path):
-            with open(mcp_server_path, 'w', encoding='utf-8') as f:
-                f.write(standalone_server_content)
-            click.echo(f"✓ 创建 {mcp_server_path}")
-
-    except Exception as e:
-        click.echo(f"⚠️  无法创建独立MCP服务器: {e}")
-        click.echo("   请手动配置MCP服务器")
-    
-    # 4. 创建示例文档
+    # 3. 创建示例文档
     example_docs = {
         "docs/01_Goals_and_Status/README.md": """# 目标与状态
 
@@ -328,9 +165,38 @@ if __name__ == "__main__":
         if not os.path.exists(path):
             with open(path, 'w', encoding='utf-8') as f:
                 f.write(content)
-            click.echo(f"✓ 创建 {path}")
+            click.echo(f"✓ Created {path}")
     
-    # 4. 创建配置文件
+    # 4. Create .vscode/mcp.json configuration file
+    vscode_dir = ".vscode"
+    if not os.path.exists(vscode_dir):
+        os.makedirs(vscode_dir)
+    
+    # 检测当前Python环境
+    import sys
+    python_exe = sys.executable
+    current_dir = os.path.abspath(".")
+    
+    # 生成VSCode MCP配置
+    vscode_mcp_config = {
+        "servers": {
+            "agent-handoff": {
+                "type": "stdio",
+                "command": python_exe,
+                "args": ["-m", "agent_handoff.server"],
+                "cwd": current_dir
+            }
+        },
+        "inputs": []
+    }
+    
+    vscode_mcp_path = os.path.join(vscode_dir, "mcp.json")
+    if not os.path.exists(vscode_mcp_path):
+        with open(vscode_mcp_path, 'w', encoding='utf-8') as f:
+            json.dump(vscode_mcp_config, f, indent=2)
+        click.echo(f"✓ Created {vscode_mcp_path}")
+    
+    # 5. Create configuration files
     config_path = ".agent-handoff/config.yaml"
     if not os.path.exists(config_path):
         with open(config_path, 'w', encoding='utf-8') as f:
@@ -345,7 +211,7 @@ project:
 #   structure:
 #     custom_mapping: false
 """)
-        click.echo(f"✓ 创建 {config_path}")
+        click.echo(f"✓ Created {config_path}")
     
     # 5. 创建 .gitignore（如果项目有 Git）
     if os.path.exists(".git"):
@@ -364,88 +230,91 @@ __pycache__/
     
     # 6. 打印下一步指引
     click.echo("\n" + "="*60)
-    click.echo("🎉 初始化完成！")
+    click.echo("🎉 Initialization Complete!")
     click.echo("="*60)
     
-    click.echo("\n📝 下一步：配置你的 IDE\n")
+    click.echo("\n📝 Next Step: Configure your IDE\n")
     
-    click.echo("如果你使用 VSCode 或 Cursor (支持GitHub Copilot)：")
-    click.echo("方法1 - 使用界面配置（推荐）：")
-    click.echo("1. 点击右下角的工具选项 🔧")
-    click.echo("2. 选择 '配置MCP服务器'")
-    click.echo("3. 点击上方栏右侧 '添加MCP服务器'")
-    click.echo("4. 选择 '命令类型'")
-    click.echo("5. 输入命令：python -m agent_handoff.server")
-    click.echo("6. 设置工作目录为当前项目根目录\n")
+    click.echo("📋 VSCode/Cursor Configuration:")
+    click.echo("✅ Auto-created .vscode/mcp.json configuration file")
+    click.echo("   If using virtual environment, config automatically uses correct Python path\n")
     
-    click.echo("方法2 - 手动配置settings.json：")
-    click.echo("1. 打开 settings.json（命令面板: Preferences: Open User Settings (JSON)）")
-    click.echo("2. 添加以下配置：\n")
+    click.echo("🔧 Manual Configuration (if auto-config doesn't work):")
+    click.echo("Method 1 - Use UI Configuration:")
+    click.echo("1. VSCode: Open Command Palette (Ctrl+Shift+P) → 'MCP: Configure'")
+    click.echo("2. Or click MCP status in bottom-right → 'Configure MCP Servers'")
+    click.echo("3. Add server with following parameters:")
     
-    # 获取当前Python可执行文件路径和项目目录
+    # 获取当前Python路径
     import sys
     python_path = sys.executable
     current_dir = os.path.abspath(".")
-    mcp_script_path = os.path.join(current_dir, ".agent-handoff", "mcp_server.py")
     
-    click.secho(f"""
-{{
+    click.echo(f"   - Command: {python_path}")
+    click.echo("   - Args: -m agent_handoff.server")
+    click.echo(f"   - Working Directory: {current_dir}\n")
+    
+    click.echo("Method 2 - Manual settings.json editing:")
+    click.echo("1. Open settings.json (Ctrl+Shift+P → 'Preferences: Open User Settings (JSON)')")
+    click.echo("2. Add the following configuration:\n")
+    
+    click.secho(f'''{{
   "mcp": {{
     "servers": {{
       "agent-handoff": {{
         "command": "{python_path}",
-        "args": ["{mcp_script_path}"],
+        "args": ["-m", "agent_handoff.server"],
         "cwd": "{current_dir}"
       }}
     }}
   }}
-}}
-""", fg="cyan")
+}}''', fg="cyan")
     
-    click.echo("\n3. 重启 IDE")
-    click.echo("4. 在 Copilot/Claude 中输入: '调用 start_work，我要开始开发'\n")
+    click.echo("\n3. 重启 VSCode/Cursor")
+    click.echo("4. 检查右下角MCP连接状态")
+    click.echo("5. 在 Copilot 中输入: 'Call start_work to begin development'\n")
     
-    click.echo("📚 更多文档: https://github.com/Sithcighce/AgentHandOff\n")
+    click.echo("� 提示:")
+    click.echo("- 如果连接失败，检查Python路径是否正确")
+    click.echo("- 确保 agent-handoff 已安装到当前Python环境")
+    click.echo("- 查看VSCode输出面板的MCP日志获取错误信息\n")
     
-    click.echo("⚠️  重要提示：")
-    click.echo("- 确保使用正确的Python环境（虚拟环境或全局环境）")
-    click.echo("- 如果使用虚拟环境，请在MCP配置中指定完整的Python路径")
-    click.echo("- 重启VSCode后MCP服务器才会生效")
+    click.echo("📚 More docs: https://github.com/Sithcighce/AgentHandOff")
 
 
 @cli.command()
 def status():
-    """查看当前项目状态"""
+    """Check current project status"""
     
     if not os.path.exists(".agent-handoff"):
-        click.echo("❌ 项目未初始化。请先运行: agent-handoff init")
+        click.echo("❌ Project not initialized. Please run: agent-handoff init")
         return
     
-    click.echo("📊 Agent-Handoff 状态\n")
+    click.echo("📊 Agent-Handoff Status\n")
     
-    # 检查 agentreadme
+    # Check agentreadme
     agentreadme_path = ".agent-handoff/agentreadme.md"
     if os.path.exists(agentreadme_path):
         with open(agentreadme_path, 'r', encoding='utf-8') as f:
             content = f.read()
-        click.echo(f"✓ agentreadme.md: {len(content)} 字符")
+        click.echo(f"✓ agentreadme.md: {len(content)} characters")
     else:
-        click.echo("⚠️  agentreadme.md 不存在")
+        click.echo("⚠️  agentreadme.md does not exist")
     
-    # 检查文档数量
+    # Check document count
     docs_count = 0
     for root, dirs, files in os.walk("docs"):
         docs_count += len([f for f in files if f.endswith('.md')])
-    click.echo(f"✓ 文档数量: {docs_count} 个")
+    click.echo(f"✓ Document count: {docs_count} files")
     
-    # 检查会话历史
+    # Check session history
     history_dir = ".agent-handoff/history"
     if os.path.exists(history_dir):
         sessions = [f for f in os.listdir(history_dir) if f.endswith('.json')]
-        click.echo(f"✓ 历史会话: {len(sessions)} 个")
+        click.echo(f"✓ Session history: {len(sessions)} sessions")
         
         if sessions:
-            click.echo("\n最近的会话:")
+            click.echo("\nRecent sessions:")
             for session_file in sorted(sessions)[-3:]:
                 click.echo(f"  - {session_file}")
     
@@ -454,15 +323,15 @@ def status():
 
 @cli.command()
 def diagnose():
-    """诊断MCP服务器环境和配置"""
-    click.echo("🔧 运行MCP环境诊断...")
+    """Diagnose MCP server environment and configuration"""
+    click.echo("🔧 Running MCP environment diagnostics...")
     
     try:
         # 运行诊断脚本
         import subprocess
         import sys
         
-        # 获取诊断脚本路径
+        # Get diagnostic script path
         current_dir = os.path.dirname(__file__)
         tools_dir = os.path.join(os.path.dirname(current_dir), "..", "tools")
         diagnose_script = os.path.join(tools_dir, "mcp_diagnostics.py")

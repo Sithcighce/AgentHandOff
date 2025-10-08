@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-最小化的Agent-Handoff MCP服务器
-用于测试和调试导入问题
+Agent-Handoff MCP Server
 """
 
 import asyncio
@@ -10,74 +9,66 @@ import logging
 import os
 from typing import Any
 
-# 检查MCP导入
-try:
-    from mcp.server import Server
-    from mcp.server.stdio import stdio_server
-    from mcp.types import Tool, TextContent
-    print("✅ MCP依赖导入成功")
-except ImportError as e:
-    print(f"❌ MCP依赖导入失败: {e}")
-    raise
+from mcp.server import Server
+from mcp.server.stdio import stdio_server
+from mcp.types import Tool, TextContent
 
-# 配置日志
+# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("agent-handoff")
 
 class AgentHandoffServer:
-    """Agent-Handoff MCP 服务器核心 - 简化版"""
+    """Agent-Handoff MCP Server Core"""
     
     def __init__(self):
-        print("🚀 初始化AgentHandoffServer...")
         self.server = Server("agent-handoff")
         self.project_root = os.getcwd()
         self.docs_dir = os.path.join(self.project_root, "docs")
         self.config_dir = os.path.join(self.project_root, ".agent-handoff")
         
-        # 工作流状态（内存存储）
+        # Workflow state (in-memory storage)
         self.active_sessions = {}
         
-        # 注册工具处理器
+        # Register tool handlers
         self._register_handlers()
-        print("✅ AgentHandoffServer初始化完成")
     
     def _register_handlers(self):
-        """注册基础工具处理器"""
+        """Register basic tool handlers"""
         
         @self.server.list_tools()
         async def list_tools() -> list[Tool]:
-            """返回工具列表"""
+            """Return available tools"""
             return [
                 Tool(
-                    name="test_tool",
-                    description="测试工具",
+                    name="start_work",
+                    description="Start a new work session",
                     inputSchema={
                         "type": "object",
                         "properties": {
-                            "message": {
+                            "user_goal": {
                                 "type": "string",
-                                "description": "测试消息"
+                                "description": "User's goal and requirements"
                             }
                         },
-                        "required": ["message"]
+                        "required": ["user_goal"]
                     }
                 )
             ]
         
         @self.server.call_tool()
         async def call_tool(name: str, arguments: Any) -> list[TextContent]:
-            """处理工具调用"""
-            if name == "test_tool":
-                message = arguments.get("message", "Hello World")
-                result = {"status": "success", "message": f"收到消息: {message}"}
+            """Handle tool calls"""
+            if name == "start_work":
+                goal = arguments.get("user_goal", "")
+                result = {"status": "success", "message": f"Work session started with goal: {goal}"}
                 return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
             else:
-                error_result = {"error": f"未知工具: {name}"}
+                error_result = {"error": f"Unknown tool: {name}"}
                 return [TextContent(type="text", text=json.dumps(error_result, ensure_ascii=False, indent=2))]
 
 async def main():
-    """启动MCP服务器"""
-    logger.info("Agent-Handoff MCP 服务器启动中...")
+    """Start MCP server"""
+    logger.info("Agent-Handoff MCP server starting...")
     
     try:
         server_instance = AgentHandoffServer()
@@ -89,9 +80,8 @@ async def main():
                 server_instance.server.create_initialization_options()
             )
     except Exception as e:
-        logger.error(f"服务器启动失败: {e}")
+        logger.error(f"Server startup failed: {e}")
         raise
 
 if __name__ == "__main__":
-    print("🧪 测试版Agent-Handoff MCP服务器")
     asyncio.run(main())
