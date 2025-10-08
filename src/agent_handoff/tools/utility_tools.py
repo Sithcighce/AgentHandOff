@@ -87,6 +87,24 @@ class UtilityToolsHandler:
                     },
                     "required": ["query"]
                 }
+            ),
+            Tool(
+                name="append_file",
+                description="Append content to an existing file in the docs directory",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "path": {
+                            "type": "string",
+                            "description": "Path to file relative to docs directory"
+                        },
+                        "content": {
+                            "type": "string",
+                            "description": "Content to append to the file"
+                        }
+                    },
+                    "required": ["path", "content"]
+                }
             )
         ]
     
@@ -214,11 +232,23 @@ class UtilityToolsHandler:
             # Write file
             file_path.write_text(content, encoding='utf-8')
             
+            # Get file statistics for health check
+            line_count = len(content.splitlines())
+            
             response = {
                 "path": path,
                 "status": "written",
-                "size": len(content)
+                "size": len(content),
+                "lines": line_count
             }
+            
+            # Add health warnings if needed
+            warnings = []
+            if line_count > 300:
+                warnings.append(f"⚠️ File is too long ({line_count} lines). Consider splitting into multiple files (recommended <300 lines).")
+            
+            if warnings:
+                response["warnings"] = warnings
             
             return [TextContent(type="text", text=json.dumps(response, indent=2, ensure_ascii=False))]
             
@@ -273,8 +303,18 @@ class UtilityToolsHandler:
             response = {
                 "path": path,
                 "directories": directories,
-                "files": files
+                "files": files,
+                "file_count": len(files),
+                "directory_count": len(directories)
             }
+            
+            # Add health warnings if needed
+            warnings = []
+            if len(files) > 8:
+                warnings.append(f"⚠️ Directory has too many files ({len(files)} files). Consider splitting into subdirectories (recommended ≤8 files per directory).")
+            
+            if warnings:
+                response["warnings"] = warnings
             
             return [TextContent(type="text", text=json.dumps(response, indent=2, ensure_ascii=False))]
             
@@ -354,5 +394,79 @@ class UtilityToolsHandler:
             error = self._create_error_response(
                 "EXECUTION_ERROR",
                 f"Error searching files: {str(e)}"
+            )
+            return [TextContent(type="text", text=json.dumps(error, indent=2))]
+    
+    async def handle_append_file(self, arguments: Dict) -> List[TextContent]:
+        """Handle append_file tool call"""
+        try:
+            path = arguments.get("path", "")
+            content = arguments.get("content", "")
+            
+            # Special handling for agentreadme.md in project root
+            if path == "../agentreadme.md" or path == "agentreadme.md":
+                agentreadme_path = self.project_root / "agentreadme.md"
+                
+                if agentreadme_path.exists():
+                    existing = agentreadme_path.read_text(encoding='utf-8')
+                    agentreadme_path.write_text(existing + "\n" + content, encoding='utf-8')
+                else:
+                    agentreadme_path.write_text(content, encoding='utf-8')
+                
+                response = {
+                    "path": path,
+                    "status": "appended",
+                    "appended_size": len(content)
+                }
+                return [TextContent(type="text", text=json.dumps(response, indent=2, ensure_ascii=False))]
+            
+            file_path = self._ensure_docs_path(path)
+            
+            # Check if file exists
+            if not file_path.exists():
+                error = self._create_error_response(
+                    "FILE_NOT_FOUND",
+                    f"Cannot append to non-existent file: {path}",
+                    "Use write_file to create a new file"
+                )
+                return [TextContent(type="text", text=json.dumps(error, indent=2))]
+            
+            # Read existing content and append
+            existing_content = file_path.read_text(encoding='utf-8')
+            file_path.write_text(existing_content + "\n" + content, encoding='utf-8')
+            
+            # Check file health after append
+            final_size = file_path.stat().st_size
+            line_count = len(file_path.read_text(encoding='utf-8').splitlines())
+            
+            response = {
+                "path": path,
+                "status": "appended",
+                "appended_size": len(content),
+                "total_size": final_size,
+                "total_lines": line_count
+            }
+            
+            # Add health warnings if needed
+            warnings = []
+            if line_count > 300:
+                warnings.append(f"⚠️ File is too long ({line_count} lines). Consider splitting into multiple files (recommended <300 lines).")
+            
+            if warnings:
+                response["warnings"] = warnings
+            
+            return [TextContent(type="text", text=json.dumps(response, indent=2, ensure_ascii=False))]
+            
+        except ValueError as e:
+            error = self._create_error_response(
+                "INVALID_PATH",
+                str(e),
+                "Use paths relative to docs directory only"
+            )
+            return [TextContent(type="text", text=json.dumps(error, indent=2))]
+        except Exception as e:
+            error = self._create_error_response(
+                "EXECUTION_ERROR",
+                f"Error appending to file: {str(e)}"
             )
             return [TextContent(type="text", text=json.dumps(error, indent=2))]

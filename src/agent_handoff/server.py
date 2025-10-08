@@ -68,6 +68,8 @@ class AgentHandoffServer:
                     return await self.utility_handler.handle_read_file(arguments)
                 elif name == "write_file":
                     return await self.utility_handler.handle_write_file(arguments)
+                elif name == "append_file":
+                    return await self.utility_handler.handle_append_file(arguments)
                 elif name == "list_files":
                     return await self.utility_handler.handle_list_files(arguments)
                 elif name == "search_files":

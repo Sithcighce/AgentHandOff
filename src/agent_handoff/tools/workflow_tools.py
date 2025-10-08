@@ -36,7 +36,7 @@ class WorkflowToolsHandler:
         return [
             Tool(
                 name="start_work",
-                description="Start a new work session and get initial context",
+                description="🚨 MANDATORY FIRST STEP 🚨 Start a new work session. You MUST call this tool FIRST before doing ANY development work. This initializes the workflow tracking system and retrieves project context. Calling this is NOT optional - it is REQUIRED.",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -50,7 +50,7 @@ class WorkflowToolsHandler:
             ),
             Tool(
                 name="plan_setup",
-                description="Submit a development plan for the current session",
+                description="📋 REQUIRED STEP 2: Submit your development plan. Must be called after start_work and before proceeding with implementation.",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -64,7 +64,7 @@ class WorkflowToolsHandler:
             ),
             Tool(
                 name="proceed",
-                description="Report progress and get next instructions",
+                description="✅ STEP 3: Report your completed work progress. You MUST call this at least once with actual work completed before you can end the job. This is not optional.",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -78,7 +78,7 @@ class WorkflowToolsHandler:
             ),
             Tool(
                 name="report_issue",
-                description="Report an issue or problem during development",
+                description="🐛 OPTIONAL: Report an issue or problem during development",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -96,7 +96,7 @@ class WorkflowToolsHandler:
             ),
             Tool(
                 name="end_job",
-                description="Complete the work session and provide handoff documentation",
+                description="🏁 FINAL STEP: Complete the work session. Can only be called AFTER you have called 'proceed' at least once with completed work. The workflow enforces this strictly.",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -154,7 +154,7 @@ class WorkflowToolsHandler:
             "status": "work_started",
             "user_goal": user_goal,
             "agent_readme_content": agent_readme_content,
-            "instruction": "Next step: Call plan_setup tool with your development plan"
+            "instruction": "✅ Work session started successfully! You are now in a TRACKED workflow.\n\n🚨 MANDATORY NEXT STEP: You MUST now call 'plan_setup' tool to submit your development plan.\n\n⚠️ WORKFLOW ENFORCEMENT: All your work in this session is being tracked. You cannot skip steps. The workflow is: start_work → plan_setup → proceed (at least once) → end_job.\n\nDo NOT proceed with code changes until you have called plan_setup!"
         }
         
         return [TextContent(type="text", text=json.dumps(response, indent=2, ensure_ascii=False))]
@@ -264,10 +264,29 @@ class WorkflowToolsHandler:
             )
             return [TextContent(type="text", text=json.dumps(error, indent=2))]
         
+        session = self.active_sessions[self.current_session_id]
+        
+        # STRICT CHECK: Must have completed at least one proceed before ending
+        if session["state"] not in [WorkflowState.IN_PROGRESS]:
+            error = self._create_error_response(
+                "WORKFLOW_VIOLATION",
+                f"Cannot end job without completing work. Current state: {session['state']}",
+                "You must call 'proceed' at least once to report completed work before calling 'end_job'. The work is not done yet!"
+            )
+            return [TextContent(type="text", text=json.dumps(error, indent=2))]
+        
+        # Additional check: Must have at least one progress entry
+        if not session.get("progress") or len(session["progress"]) == 0:
+            error = self._create_error_response(
+                "WORKFLOW_VIOLATION",
+                "Cannot end job without any completed work reported.",
+                "Call 'proceed' to report your completed work before ending the job. You haven't done anything yet!"
+            )
+            return [TextContent(type="text", text=json.dumps(error, indent=2))]
+        
         summary = arguments.get("summary", "")
         agentreadme_content = arguments.get("agentreadme_content", "")
         
-        session = self.active_sessions[self.current_session_id]
         session["summary"] = summary
         session["completed_at"] = datetime.now().isoformat()
         
