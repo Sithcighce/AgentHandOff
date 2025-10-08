@@ -82,7 +82,191 @@ def init():
 """)
         click.echo(f"✓ 创建 {agentreadme_path}")
     
-    # 3. 创建示例文档
+    # 3. 复制独立MCP服务器脚本
+    try:
+        # 尝试从agent_handoff模块目录读取standalone_mcp_server.py
+        import agent_handoff
+        module_dir = os.path.dirname(agent_handoff.__file__)
+        standalone_server_path = os.path.join(module_dir, 'standalone_mcp_server.py')
+        
+        if os.path.exists(standalone_server_path):
+            with open(standalone_server_path, 'r', encoding='utf-8') as f:
+                standalone_server_content = f.read()
+        else:
+            # 如果找不到文件，使用简化版本
+            standalone_server_content = '''#!/usr/bin/env python3
+"""
+Agent-Handoff 独立MCP服务器（简化版）
+这个脚本可以在任何项目目录中运行，无需安装agent_handoff包
+使用方法: python .agent-handoff/mcp_server.py
+"""
+
+import asyncio
+import json
+import logging
+import os
+import sys
+from typing import Any
+
+try:
+    from mcp.server import Server
+    from mcp.server.stdio import stdio_server
+    from mcp.types import Tool, TextContent
+except ImportError:
+    print("错误: 请先安装 MCP 依赖: pip install mcp", file=sys.stderr)
+    sys.exit(1)
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("agent-handoff")
+
+class AgentHandoffServer:
+    """简化的Agent-Handoff MCP服务器"""
+    
+    def __init__(self):
+        self.server = Server("agent-handoff")
+        self.project_root = os.getcwd()
+        self.docs_dir = os.path.join(self.project_root, "docs")
+        self.config_dir = os.path.join(self.project_root, ".agent-handoff")
+        
+        os.makedirs(self.docs_dir, exist_ok=True)
+        os.makedirs(self.config_dir, exist_ok=True)
+        
+        self.active_sessions = {}
+        self._register_handlers()
+        logger.info(f"MCP服务器启动，项目目录: {self.project_root}")
+    
+    def _register_handlers(self):
+        @self.server.list_tools()
+        async def list_tools() -> list[Tool]:
+            return [
+                Tool(
+                    name="start_work",
+                    description="开始新的工作会话",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "user_goal": {
+                                "type": "string",
+                                "description": "用户的目标和需求描述"
+                            }
+                        },
+                        "required": ["user_goal"]
+                    }
+                ),
+                Tool(
+                    name="read_file",
+                    description="读取docs目录下的文件",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "path": {
+                                "type": "string",
+                                "description": "文件路径（相对于docs/）"
+                            }
+                        },
+                        "required": ["path"]
+                    }
+                ),
+                Tool(
+                    name="write_file", 
+                    description="写入文件到docs目录",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "path": {
+                                "type": "string", 
+                                "description": "文件路径（相对于docs/）"
+                            },
+                            "content": {
+                                "type": "string",
+                                "description": "文件内容"
+                            }
+                        },
+                        "required": ["path", "content"]
+                    }
+                )
+            ]
+        
+        @self.server.call_tool()
+        async def call_tool(name: str, arguments: Any) -> list[TextContent]:
+            try:
+                if name == "start_work":
+                    goal = arguments.get("user_goal", "")
+                    # 读取agentreadme.md
+                    readme_path = os.path.join(self.config_dir, "agentreadme.md")
+                    context = "项目暂无历史上下文"
+                    if os.path.exists(readme_path):
+                        with open(readme_path, 'r', encoding='utf-8') as f:
+                            context = f.read()
+                    
+                    result = {
+                        "status": "success",
+                        "message": "工作会话已启动", 
+                        "user_goal": goal,
+                        "project_context": context,
+                        "next_step": "请制定详细计划并开始执行"
+                    }
+                    
+                elif name == "read_file":
+                    path = arguments["path"]
+                    full_path = os.path.join(self.docs_dir, path)
+                    try:
+                        with open(full_path, 'r', encoding='utf-8') as f:
+                            content = f.read()
+                        result = {"path": path, "content": content}
+                    except FileNotFoundError:
+                        result = {"error": f"文件不存在: {path}"}
+                        
+                elif name == "write_file":
+                    path = arguments["path"]
+                    content = arguments["content"]
+                    full_path = os.path.join(self.docs_dir, path)
+                    os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                    with open(full_path, 'w', encoding='utf-8') as f:
+                        f.write(content)
+                    result = {"status": "success", "message": f"文件已保存: {path}"}
+                    
+                else:
+                    result = {"error": f"未知工具: {name}"}
+                
+                return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
+                
+            except Exception as e:
+                logger.error(f"工具 {name} 执行失败: {e}")
+                error_result = {
+                    "error": {
+                        "code": "TOOL_EXECUTION_ERROR",
+                        "message": str(e)
+                    }
+                }
+                return [TextContent(type="text", text=json.dumps(error_result, ensure_ascii=False, indent=2))]
+
+async def main():
+    logger.info("Agent-Handoff 独立MCP服务器启动中...")
+    server_instance = AgentHandoffServer()
+    
+    async with stdio_server() as (read_stream, write_stream):
+        await server_instance.server.run(
+            read_stream,
+            write_stream,
+            server_instance.server.create_initialization_options()
+        )
+
+if __name__ == "__main__":
+    asyncio.run(main())
+'''
+
+        mcp_server_path = ".agent-handoff/mcp_server.py"
+        if not os.path.exists(mcp_server_path):
+            with open(mcp_server_path, 'w', encoding='utf-8') as f:
+                f.write(standalone_server_content)
+            click.echo(f"✓ 创建 {mcp_server_path}")
+
+    except Exception as e:
+        click.echo(f"⚠️  无法创建独立MCP服务器: {e}")
+        click.echo("   请手动配置MCP服务器")
+    
+    # 4. 创建示例文档
     example_docs = {
         "docs/01_Goals_and_Status/README.md": """# 目标与状态
 
@@ -198,21 +382,24 @@ __pycache__/
     click.echo("1. 打开 settings.json（命令面板: Preferences: Open User Settings (JSON)）")
     click.echo("2. 添加以下配置：\n")
     
-    click.secho("""
-{
-  "mcp": {
-    "servers": {
-      "agent-handoff": {
-        "command": "python",
-        "args": ["-m", "agent_handoff.server"],
-        "cwd": "${workspaceFolder}",
-        "env": {
-          "PYTHONPATH": "${workspaceFolder}"
-        }
-      }
-    }
-  }
-}
+    # 获取当前Python可执行文件路径和项目目录
+    import sys
+    python_path = sys.executable
+    current_dir = os.path.abspath(".")
+    mcp_script_path = os.path.join(current_dir, ".agent-handoff", "mcp_server.py")
+    
+    click.secho(f"""
+{{
+  "mcp": {{
+    "servers": {{
+      "agent-handoff": {{
+        "command": "{python_path}",
+        "args": ["{mcp_script_path}"],
+        "cwd": "{current_dir}"
+      }}
+    }}
+  }}
+}}
 """, fg="cyan")
     
     click.echo("\n3. 重启 IDE")

@@ -2,7 +2,11 @@
 
 > 项目级 AI 协作记忆与工作流系统
 
-**一句话**: 让 AI Agent 像有经验的团队成员一样，理解项目上下文、遵循工作流程，而不是每次对话都从零开始。
+**一句话**├── .agent-handoff/
+    ├── agentreadme.md             # Agent 交接文档
+    ├── config.yaml                # 配置文件
+    ├── mcp_server.py              # 独立MCP服务器（无需安装）
+    └── history/                   # 会话历史AI Agent 像有经验的团队成员一样，理解项目上下文、遵循工作流程，而不是每次对话都从零开始。
 
 ## 核心问题
 
@@ -39,7 +43,7 @@ cd your-project
 agent-handoff init
 ```
 
-这会创建：
+这会创建完整的项目结构和**独立的MCP服务器脚本**：
 ```
 your-project/
 ├── docs/
@@ -54,6 +58,8 @@ your-project/
 ```
 
 ### 3. 配置 IDE
+
+**重要**: `agent-handoff init` 会在项目中创建独立的 `mcp_server.py` 脚本，这样即使在没有安装 `agent-handoff` 的其他项目中也可以使用 MCP 功能。
 
 **VSCode / Cursor (推荐使用配置助手)**:
 
