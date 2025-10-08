@@ -26,7 +26,7 @@ Agent-Handoff 提供：
 
 ```bash
 # 从 GitHub 安装（MVP 阶段）
-pip install git+https://github.com/yourusername/agent-handoff.git
+pip install git+https://github.com/Sithcighce/AgentHandOff.git#egg=agent-handoff
 
 # 未来会发布到 PyPI
 # pip install agent-handoff
@@ -55,9 +55,16 @@ your-project/
 
 ### 3. 配置 IDE
 
-**VSCode / Cursor**:
+**VSCode / Cursor (推荐使用配置助手)**:
 
-打开 `settings.json`，添加：
+运行配置助手获取准确的配置：
+```bash
+python tools/setup_helper.py
+```
+
+**或手动配置**:
+
+打开 `settings.json`，添加（使用你的实际Python路径）：
 
 ```json
 {
@@ -71,6 +78,17 @@ your-project/
     }
   }
 }
+```
+
+**⚠️ 重要配置说明**:
+- 如果使用虚拟环境，请将 `"command"` 设为虚拟环境中的python路径
+- 确保 `agent-handoff` 已安装到对应的Python环境中
+- 配置后需要重启VSCode
+
+**配置诊断**:
+如果遇到问题，运行诊断命令：
+```bash
+agent-handoff diagnose
 ```
 
 **Claude Desktop**:

@@ -185,7 +185,16 @@ __pycache__/
     
     click.echo("\n📝 下一步：配置你的 IDE\n")
     
-    click.echo("如果你使用 VSCode 或 Cursor：")
+    click.echo("如果你使用 VSCode 或 Cursor (支持GitHub Copilot)：")
+    click.echo("方法1 - 使用界面配置（推荐）：")
+    click.echo("1. 点击右下角的工具选项 🔧")
+    click.echo("2. 选择 '配置MCP服务器'")
+    click.echo("3. 点击上方栏右侧 '添加MCP服务器'")
+    click.echo("4. 选择 '命令类型'")
+    click.echo("5. 输入命令：python -m agent_handoff.server")
+    click.echo("6. 设置工作目录为当前项目根目录\n")
+    
+    click.echo("方法2 - 手动配置settings.json：")
     click.echo("1. 打开 settings.json（命令面板: Preferences: Open User Settings (JSON)）")
     click.echo("2. 添加以下配置：\n")
     
@@ -196,7 +205,10 @@ __pycache__/
       "agent-handoff": {
         "command": "python",
         "args": ["-m", "agent_handoff.server"],
-        "cwd": "${workspaceFolder}"
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}"
+        }
       }
     }
   }
@@ -206,7 +218,12 @@ __pycache__/
     click.echo("\n3. 重启 IDE")
     click.echo("4. 在 Copilot/Claude 中输入: '调用 start_work，我要开始开发'\n")
     
-    click.echo("📚 更多文档: https://github.com/yourusername/agent-handoff\n")
+    click.echo("📚 更多文档: https://github.com/Sithcighce/AgentHandOff\n")
+    
+    click.echo("⚠️  重要提示：")
+    click.echo("- 确保使用正确的Python环境（虚拟环境或全局环境）")
+    click.echo("- 如果使用虚拟环境，请在MCP配置中指定完整的Python路径")
+    click.echo("- 重启VSCode后MCP服务器才会生效")
 
 
 @cli.command()
@@ -246,6 +263,73 @@ def status():
                 click.echo(f"  - {session_file}")
     
     click.echo()
+
+
+@cli.command()
+def diagnose():
+    """诊断MCP服务器环境和配置"""
+    click.echo("🔧 运行MCP环境诊断...")
+    
+    try:
+        # 运行诊断脚本
+        import subprocess
+        import sys
+        
+        # 获取诊断脚本路径
+        current_dir = os.path.dirname(__file__)
+        tools_dir = os.path.join(os.path.dirname(current_dir), "..", "tools")
+        diagnose_script = os.path.join(tools_dir, "mcp_diagnostics.py")
+        
+        if os.path.exists(diagnose_script):
+            subprocess.run([sys.executable, diagnose_script])
+        else:
+            # 如果找不到外部脚本，运行内置诊断
+            click.echo("运行内置诊断...")
+            _run_builtin_diagnostics()
+            
+    except Exception as e:
+        click.echo(f"诊断失败: {e}")
+        _run_builtin_diagnostics()
+
+
+def _run_builtin_diagnostics():
+    """内置诊断功能"""
+    import sys
+    
+    click.echo("\n🔍 环境检查:")
+    click.echo(f"Python版本: {sys.version}")
+    click.echo(f"Python路径: {sys.executable}")
+    
+    # 检查agent_handoff是否可导入
+    try:
+        import agent_handoff
+        click.echo(f"✅ agent-handoff已安装: {agent_handoff.__version__}")
+    except ImportError:
+        click.echo("❌ agent-handoff未安装")
+        click.echo("请运行: pip install git+https://github.com/Sithcighce/AgentHandOff.git#egg=agent-handoff")
+        return
+    
+    # 检查MCP服务器
+    try:
+        from agent_handoff.server import AgentHandoffServer
+        click.echo("✅ MCP服务器模块可用")
+    except ImportError as e:
+        click.echo(f"❌ MCP服务器导入失败: {e}")
+        return
+    
+    # 生成配置建议
+    click.echo(f"\n⚙️ 推荐MCP配置:")
+    click.echo(f'''{{
+  "mcp": {{
+    "servers": {{
+      "agent-handoff": {{
+        "command": "{sys.executable}",
+        "args": ["-m", "agent_handoff.server"],
+        "cwd": "{os.getcwd()}"
+      }}
+    }}
+  }}
+}}''')
 
 
 if __name__ == "__main__":

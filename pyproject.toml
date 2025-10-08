@@ -20,3 +20,6 @@ dev = [
 
 [project.scripts]
 agent-handoff = "agent_handoff.cli:cli"
+
+[project.entry-points."console_scripts"]
+agent-handoff-server = "agent_handoff.server:main"
