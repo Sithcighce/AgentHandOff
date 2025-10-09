@@ -20,7 +20,39 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("agent-handoff")
 
 class AgentHandoffServer:
-    """Agent-Handoff MCP Server - Refactored Architecture"""
+    """
+    🚨🚨🚨 CRITICAL: MANDATORY WORKFLOW ENFORCEMENT 🚨🚨🚨
+    
+    Agent-Handoff MCP Server - Structured Development Workflow System
+    
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    BEFORE YOU DO ANYTHING ELSE:
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+    This server enforces a STRICT MANDATORY WORKFLOW. You CANNOT skip steps.
+    
+    📋 REQUIRED WORKFLOW (IN ORDER):
+    
+    1. 🚨 start_work     → FIRST! Initialize session and get context
+    2. 📋 plan_setup     → Submit your development plan  
+    3. ✅ proceed        → Report completed work (REQUIRED at least once)
+    4. 🏁 end_job        → Finalize and handoff (only after proceed)
+    
+    ⚠️  ENFORCEMENT RULES:
+    - You MUST call start_work BEFORE any development work
+    - You CANNOT call end_job without calling proceed first
+    - Skipping steps will result in WORKFLOW_VIOLATION errors
+    - All work is tracked and validated
+    
+    💡 WHY THIS MATTERS:
+    - Maintains project continuity across AI sessions
+    - Creates structured handoff documentation
+    - Ensures accountability and progress tracking
+    
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    START EVERY SESSION WITH: start_work(user_goal="...")
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    """
     
     def __init__(self):
         self.server = Server("agent-handoff")
@@ -35,6 +67,7 @@ class AgentHandoffServer:
         # Register all tool handlers
         self._register_handlers()
         logger.info("Agent-Handoff MCP server initialized")
+        logger.info("🚨 WORKFLOW ENFORCEMENT ACTIVE: start_work → plan_setup → proceed → end_job")
     
     def _register_handlers(self):
         """Register all tool handlers"""

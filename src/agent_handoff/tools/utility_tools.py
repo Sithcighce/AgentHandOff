@@ -226,6 +226,14 @@ class UtilityToolsHandler:
             
             file_path = self._ensure_docs_path(path)
             
+            # Check file extension - docs should primarily contain documentation files
+            file_extension = file_path.suffix.lower()
+            non_doc_extensions = ['.py', '.js', '.ts', '.java', '.cpp', '.c', '.h', '.go', '.rs', '.exe', '.bin', '.so', '.dll']
+            
+            warnings = []
+            if file_extension in non_doc_extensions:
+                warnings.append(f"⚠️ WARNING: You are writing a {file_extension} file to the docs/ directory. The docs/ folder is meant for DOCUMENTATION files (.md, .txt, etc.), not code or executables. Consider if this file should be elsewhere in the project structure.")
+            
             # Create parent directories if needed
             file_path.parent.mkdir(parents=True, exist_ok=True)
             
@@ -243,7 +251,6 @@ class UtilityToolsHandler:
             }
             
             # Add health warnings if needed
-            warnings = []
             if line_count > 300:
                 warnings.append(f"⚠️ File is too long ({line_count} lines). Consider splitting into multiple files (recommended <300 lines).")
             
@@ -422,6 +429,14 @@ class UtilityToolsHandler:
             
             file_path = self._ensure_docs_path(path)
             
+            # Check file extension - docs should primarily contain documentation files
+            file_extension = file_path.suffix.lower()
+            non_doc_extensions = ['.py', '.js', '.ts', '.java', '.cpp', '.c', '.h', '.go', '.rs', '.exe', '.bin', '.so', '.dll']
+            
+            warnings = []
+            if file_extension in non_doc_extensions:
+                warnings.append(f"⚠️ WARNING: You are appending to a {file_extension} file in the docs/ directory. The docs/ folder is meant for DOCUMENTATION files (.md, .txt, etc.), not code or executables. Consider if this file should be elsewhere in the project structure.")
+            
             # Check if file exists
             if not file_path.exists():
                 error = self._create_error_response(
@@ -448,7 +463,6 @@ class UtilityToolsHandler:
             }
             
             # Add health warnings if needed
-            warnings = []
             if line_count > 300:
                 warnings.append(f"⚠️ File is too long ({line_count} lines). Consider splitting into multiple files (recommended <300 lines).")
             
